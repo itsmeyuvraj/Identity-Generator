@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hide from Dock and App Switcher — essential for a menu-bar-only app -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Human-readable name shown in menus / About panel -->
+    <key>CFBundleDisplayName</key>
+    <string>Identity Generator</string>
+
+    <key>CFBundleName</key>
+    <string>Identity Generator</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>com.yourname.liquidpersona</string>
+
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+
+    <!-- Minimum macOS version: 13.0 (MenuBarExtra + async/await) -->
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
+</dict>
+</plist>

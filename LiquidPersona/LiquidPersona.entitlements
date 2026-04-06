@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Sandbox must be ON for Mac App Store; for development you may
+         set this to false if you don't need distribution -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Required: allows outbound HTTPS to api.mail.tm -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>
