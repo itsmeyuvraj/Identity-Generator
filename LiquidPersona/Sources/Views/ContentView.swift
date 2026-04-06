@@ -4,7 +4,8 @@ import AppKit
 struct ContentView: View {
 
     @EnvironmentObject private var vm: PersonaViewModel
-    @State private var showAbout = false
+    @State private var showAbout        = false
+    @State private var showServicePicker = false
 
     var body: some View {
         ZStack {
@@ -17,14 +18,8 @@ struct ContentView: View {
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea()
 
-            // Layer 3 ── Content (with slide transition between screens)
+            // Layer 3 ── Content
             ZStack {
-                // About overlay
-                if showAbout {
-                    AboutView(onClose: { withAnimation(.easeInOut(duration: 0.2)) { showAbout = false } })
-                        .transition(.opacity)
-                        .zIndex(10)
-                }
                 if let detail = vm.selectedMessage {
                     MessageDetailView(detail: detail, onBack: vm.clearMessageDetail)
                         .transition(.asymmetric(
@@ -34,6 +29,23 @@ struct ContentView: View {
                 } else {
                     mainView
                         .transition(.opacity)
+                }
+
+                // Overlays (above content)
+                if showServicePicker {
+                    ServicePickerView(
+                        current: vm.provider,
+                        onSelect: { vm.switchProvider($0) },
+                        onClose: { withAnimation(.easeInOut(duration: 0.18)) { showServicePicker = false } }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .zIndex(10)
+                }
+
+                if showAbout {
+                    AboutView(onClose: { withAnimation(.easeInOut(duration: 0.2)) { showAbout = false } })
+                        .transition(.opacity)
+                        .zIndex(11)
                 }
             }
             .animation(.easeInOut(duration: 0.28), value: vm.selectedMessage?.id)
@@ -109,8 +121,40 @@ struct ContentView: View {
 
             Spacer()
 
+            // Service picker chip
+            Button(action: {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    showServicePicker.toggle()
+                    if showServicePicker { showAbout = false }
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: vm.provider.icon)
+                        .font(.system(size: 9, weight: .medium))
+                    Text(vm.provider.shortName)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    Image(systemName: showServicePicker ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .foregroundStyle(providerColor.opacity(0.90))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(providerColor.opacity(0.15))
+                        .overlay(Capsule().stroke(providerColor.opacity(0.30), lineWidth: 0.5))
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Switch email service")
+
             // About button
-            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showAbout = true } }) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showAbout = true
+                    showServicePicker = false
+                }
+            }) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.white.opacity(0.35))
@@ -127,6 +171,11 @@ struct ContentView: View {
             .buttonStyle(.plain)
             .help("Quit Identity Generator")
         }
+    }
+
+    private var providerColor: Color {
+        let c = vm.provider.accentColor
+        return Color(red: c.r, green: c.g, blue: c.b)
     }
 
     // MARK: - Error Banner

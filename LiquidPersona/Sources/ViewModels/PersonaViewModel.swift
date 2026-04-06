@@ -7,23 +7,32 @@ final class PersonaViewModel: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var personaName: String       = ""
-    @Published var personaEmail: String      = ""
-    @Published var messages: [Message]       = []
-    @Published var selectedMessage: MessageDetail? = nil
-    @Published var isGenerating: Bool        = false
-    @Published var errorMessage: String?     = nil
+    @Published var personaName: String          = ""
+    @Published var personaEmail: String         = ""
+    @Published var messages: [MailMessage]      = []
+    @Published var selectedMessage: MailMessage? = nil
+    @Published var isGenerating: Bool           = false
+    @Published var errorMessage: String?        = nil
+    @Published var provider: EmailProvider      = .guerrillaMail
 
     // MARK: - Private
 
-    private var token: String?              = nil
+    private var session: ProviderSession?       = nil
     private var pollingTask: Task<Void, Never>? = nil
-    private var generation: Int             = 0     // Guards against stale polling updates
+    private var generation: Int                 = 0
 
     // MARK: - Init
 
     init() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        Task { await generatePersona() }
+    }
+
+    // MARK: - Provider Switch
+
+    func switchProvider(_ newProvider: EmailProvider) {
+        guard newProvider != provider else { return }
+        provider = newProvider
         Task { await generatePersona() }
     }
 
@@ -35,7 +44,6 @@ final class PersonaViewModel: ObservableObject {
         isGenerating = true
         errorMessage = nil
 
-        // Cancel previous polling and clear stale data
         generation &+= 1
         let myGeneration = generation
         pollingTask?.cancel()
@@ -46,27 +54,25 @@ final class PersonaViewModel: ObservableObject {
             selectedMessage = nil
         }
 
-        // Show name immediately — no network needed
+        // Show name immediately
         let (first, last) = PersonaGenerator.generateName()
         withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
             personaName  = "\(first) \(last)"
             personaEmail = ""
         }
 
+        let currentProvider = provider
         do {
-            let domain = try await MailTMService.shared.getActiveDomain()
-            let (email, password) = PersonaGenerator.generateEmail(first: first, last: last, domain: domain)
-            let _ = try await MailTMService.shared.createAccount(address: email, password: password)
-            let newToken = try await MailTMService.shared.getToken(address: email, password: password)
+            let newSession = try await MailTMService.shared.createSession(provider: currentProvider)
+            session = newSession
 
-            token = newToken
             withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
-                personaEmail = email
+                personaEmail = newSession.email
                 isGenerating = false
             }
 
             copyEmailToClipboard()
-            startPolling(generation: myGeneration)
+            startPolling(generation: myGeneration, provider: currentProvider)
 
         } catch {
             withAnimation {
@@ -87,21 +93,17 @@ final class PersonaViewModel: ObservableObject {
     // MARK: - Message Detail
 
     func loadMessageDetail(id: String) async {
-        guard let token = token else { return }
+        guard let session else { return }
         do {
-            let detail = try await MailTMService.shared.getMessage(id: id, token: token)
-            withAnimation(.easeInOut(duration: 0.25)) {
-                selectedMessage = detail
-            }
+            let detail = try await MailTMService.shared.getMessage(id: id, session: session, provider: provider)
+            withAnimation(.easeInOut(duration: 0.25)) { selectedMessage = detail }
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func clearMessageDetail() {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            selectedMessage = nil
-        }
+        withAnimation(.easeInOut(duration: 0.25)) { selectedMessage = nil }
     }
 
     // MARK: - Notifications
@@ -112,43 +114,37 @@ final class PersonaViewModel: ObservableObject {
         content.subtitle = "From: \(from)"
         content.body = subject
         content.sound = .default
-        let req = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(req)
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        )
     }
 
     // MARK: - Polling
 
-    private func startPolling(generation: Int) {
-        // The Task inherits @MainActor isolation from its creation context,
-        // so all self.* accesses (before and after awaits) are safe and do
-        // NOT require `await`.
+    private func startPolling(generation: Int, provider: EmailProvider) {
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { break }
 
-                // Capture actor-isolated values synchronously before any await
-                let tok = self.token
-                let gen = self.generation
-                guard let tok, gen == generation else { break }
+                let sess = self.session
+                let gen  = self.generation
+                guard let sess, gen == generation else { break }
 
                 do {
-                    let fetched = try await MailTMService.shared.getMessages(token: tok)
-                    // Back on @MainActor after await; re-check generation
+                    let fetched = try await MailTMService.shared.getMessages(session: sess, provider: provider)
                     if !Task.isCancelled, self.generation == generation {
-                        let newOnes = fetched.filter { msg in !self.messages.contains(where: { $0.id == msg.id }) }
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            self.messages = fetched
+                        let newOnes = fetched.filter { msg in
+                            !self.messages.contains(where: { $0.id == msg.id })
                         }
-                        for msg in newOnes {
-                            self.sendNotification(subject: msg.subject, from: msg.from.name ?? msg.from.address)
-                        }
+                        withAnimation(.easeInOut(duration: 0.2)) { self.messages = fetched }
+                        for msg in newOnes { self.sendNotification(subject: msg.subject, from: msg.from) }
                     }
                 } catch {
                     if self.generation == generation {
                         withAnimation { self.errorMessage = error.localizedDescription }
                     }
                 }
-                // Wait 7 seconds; CancellationError is swallowed intentionally
+
                 try? await Task.sleep(nanoseconds: 7_000_000_000)
             }
         }

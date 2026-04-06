@@ -1,118 +1,246 @@
 import Foundation
 
-// MARK: - Errors
-
-enum MailTMError: Error, LocalizedError {
-    case noDomainAvailable
-    case accountCreationFailed(Int, String)
-    case tokenFailed(Int)
+enum MailServiceError: Error, LocalizedError {
+    case sessionFailed
     case networkError(Error)
+    case timeout
+    case noDomain
 
     var errorDescription: String? {
         switch self {
-        case .noDomainAvailable:
-            return "No active email domain available right now."
-        case .accountCreationFailed(let code, let msg):
-            return "Account creation failed (\(code)): \(msg)"
-        case .tokenFailed(let code):
-            return "Authentication failed (HTTP \(code))."
-        case .networkError(let err):
-            return "Network error: \(err.localizedDescription)"
+        case .sessionFailed:      return "Failed to create email session."
+        case .networkError(let e): return "Network error: \(e.localizedDescription)"
+        case .timeout:            return "Request timed out. Try another service."
+        case .noDomain:           return "No email domain available."
         }
     }
 }
 
-// MARK: - Service
-
 final class MailTMService {
 
     static let shared = MailTMService()
-
     private init() {}
 
-    // MARK: Domains
+    // MARK: - Create Session
 
-    func getActiveDomain() async throws -> String {
-        let (data, _) = try await get(path: "/domains")
-        let response = try decode(DomainsResponse.self, from: data)
-        guard let domain = response.members.first(where: { $0.isActive && !$0.isPrivate }) else {
-            throw MailTMError.noDomainAvailable
-        }
-        return domain.domain
-    }
-
-    // MARK: Account
-
-    func createAccount(address: String, password: String) async throws -> Account {
-        let body = AccountRequest(address: address, password: password)
-        let (data, resp) = try await post(path: "/accounts", body: body)
-        let status = (resp as! HTTPURLResponse).statusCode
-        guard status == 201 else {
-            let msg = String(data: data, encoding: .utf8) ?? ""
-            throw MailTMError.accountCreationFailed(status, msg)
-        }
-        return try decode(Account.self, from: data)
-    }
-
-    // MARK: Token
-
-    func getToken(address: String, password: String) async throws -> String {
-        let body = TokenRequest(address: address, password: password)
-        let (data, resp) = try await post(path: "/token", body: body)
-        let status = (resp as! HTTPURLResponse).statusCode
-        guard status == 200 else {
-            throw MailTMError.tokenFailed(status)
-        }
-        let tokenResp = try decode(TokenResponse.self, from: data)
-        return tokenResp.token
-    }
-
-    // MARK: Messages
-
-    func getMessages(token: String) async throws -> [Message] {
-        let (data, _) = try await get(path: "/messages", token: token)
-        let response = try decode(MessagesResponse.self, from: data)
-        return response.members
-    }
-
-    func getMessage(id: String, token: String) async throws -> MessageDetail {
-        let (data, _) = try await get(path: "/messages/\(id)", token: token)
-        return try decode(MessageDetail.self, from: data)
-    }
-
-    // MARK: - Private Helpers
-
-    private func url(_ path: String) -> URL {
-        URL(string: "https://api.mail.tm" + path)!
-    }
-
-    private func get(path: String, token: String? = nil) async throws -> (Data, URLResponse) {
-        var req = URLRequest(url: url(path), timeoutInterval: 15)
-        req.httpMethod = "GET"
-        if let token = token {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        do {
-            return try await URLSession.shared.data(for: req)
-        } catch {
-            throw MailTMError.networkError(error)
+    func createSession(provider: EmailProvider) async throws -> ProviderSession {
+        switch provider {
+        case .guerrillaMail: return try await guerrillaSession()
+        case .mailTM:        return try await mailTMSession()
+        case .mailinator:    return try await mailinatorSession()
         }
     }
 
-    private func post<T: Encodable>(path: String, body: T) async throws -> (Data, URLResponse) {
-        var req = URLRequest(url: url(path), timeoutInterval: 15)
+    // MARK: - Get Messages
+
+    func getMessages(session: ProviderSession, provider: EmailProvider) async throws -> [MailMessage] {
+        switch provider {
+        case .guerrillaMail: return try await guerrillaMessages(session: session)
+        case .mailTM:        return try await mailTMMessages(session: session)
+        case .mailinator:    return try await mailinatorMessages(session: session)
+        }
+    }
+
+    // MARK: - Get Message Detail
+
+    func getMessage(id: String, session: ProviderSession, provider: EmailProvider) async throws -> MailMessage {
+        switch provider {
+        case .guerrillaMail: return try await guerrillaMessage(id: id, session: session)
+        case .mailTM:        return try await mailTMMessage(id: id, session: session)
+        case .mailinator:
+            // Mailinator includes full body in list — find cached or re-fetch list
+            let messages = try await mailinatorMessages(session: session)
+            return messages.first(where: { $0.id == id }) ?? MailMessage(
+                id: id, from: "", subject: "", excerpt: "", body: "", timestamp: 0)
+        }
+    }
+
+    // MARK: ── Guerrilla Mail ──────────────────────────────────────────────
+
+    private func guerrillaSession() async throws -> ProviderSession {
+        let data = try await get("https://api.guerrillamail.com/ajax.php?f=get_email_address")
+        guard
+            let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let sid   = json["sid_token"] as? String,
+            let email = json["email_addr"] as? String
+        else { throw MailServiceError.sessionFailed }
+        return ProviderSession(email: email, sidToken: sid)
+    }
+
+    private func guerrillaMessages(session: ProviderSession) async throws -> [MailMessage] {
+        guard let sid = session.sidToken else { return [] }
+        let url = "https://api.guerrillamail.com/ajax.php?f=get_email_list&offset=0&sid_token=\(sid)"
+        let data = try await get(url)
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let list = json["list"] as? [[String: Any]]
+        else { return [] }
+        return list.compactMap { parseGuerrillaMsg($0) }
+    }
+
+    private func guerrillaMessage(id: String, session: ProviderSession) async throws -> MailMessage {
+        guard let sid = session.sidToken else { throw MailServiceError.sessionFailed }
+        let url = "https://api.guerrillamail.com/ajax.php?f=fetch_email&email_id=\(id)&sid_token=\(sid)"
+        let data = try await get(url)
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let msg  = parseGuerrillaMsg(json)
+        else { throw MailServiceError.sessionFailed }
+        return msg
+    }
+
+    private func parseGuerrillaMsg(_ d: [String: Any]) -> MailMessage? {
+        guard let rawId = d["mail_id"] else { return nil }
+        let id = rawId as? String ?? String(rawId as? Int ?? 0)
+        let from    = d["mail_from"]      as? String ?? ""
+        let subject = d["mail_subject"]   as? String ?? "(no subject)"
+        let excerpt = d["mail_excerpt"]   as? String ?? ""
+        let body    = d["mail_body"]      as? String ?? excerpt
+        let ts      = d["mail_timestamp"] as? TimeInterval ?? 0
+        return MailMessage(id: id, from: from, subject: subject, excerpt: excerpt, body: body, timestamp: ts)
+    }
+
+    // MARK: ── Mail.tm ────────────────────────────────────────────────────
+
+    private func mailTMSession() async throws -> ProviderSession {
+        // 1. Get domain
+        let domainData = try await get("https://api.mail.tm/domains")
+        guard
+            let json    = try? JSONSerialization.jsonObject(with: domainData) as? [String: Any],
+            let members = json["hydra:member"] as? [[String: Any]],
+            let domain  = members.first(where: {
+                ($0["isActive"] as? Bool == true) && ($0["isPrivate"] as? Bool == false)
+            })?["domain"] as? String
+        else { throw MailServiceError.noDomain }
+
+        // 2. Create account
+        let tag      = Int.random(in: 1000...9999)
+        let user     = "user\(tag)"
+        let email    = "\(user)@\(domain)"
+        let password = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12)) + "Aa1!"
+
+        let accountBody: [String: String] = ["address": email, "password": password]
+        let accountData = try JSONSerialization.data(withJSONObject: accountBody)
+        _ = try await post("https://api.mail.tm/accounts", body: accountData)
+
+        // 3. Get token
+        let tokenBody: [String: String] = ["address": email, "password": password]
+        let tokenBodyData = try JSONSerialization.data(withJSONObject: tokenBody)
+        let tokenData = try await post("https://api.mail.tm/token", body: tokenBodyData)
+        guard
+            let tokenJson = try? JSONSerialization.jsonObject(with: tokenData) as? [String: Any],
+            let token     = tokenJson["token"] as? String
+        else { throw MailServiceError.sessionFailed }
+
+        return ProviderSession(email: email, authToken: token)
+    }
+
+    private func mailTMMessages(session: ProviderSession) async throws -> [MailMessage] {
+        guard let token = session.authToken else { return [] }
+        let data = try await get("https://api.mail.tm/messages", bearer: token)
+        guard
+            let json    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let members = json["hydra:member"] as? [[String: Any]]
+        else { return [] }
+        return members.compactMap { parseMailTMMsg($0) }
+    }
+
+    private func mailTMMessage(id: String, session: ProviderSession) async throws -> MailMessage {
+        guard let token = session.authToken else { throw MailServiceError.sessionFailed }
+        let data = try await get("https://api.mail.tm/messages/\(id)", bearer: token)
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let msg  = parseMailTMMsg(json)
+        else { throw MailServiceError.sessionFailed }
+        return msg
+    }
+
+    private func parseMailTMMsg(_ d: [String: Any]) -> MailMessage? {
+        guard let id = d["id"] as? String else { return nil }
+        let fromObj = d["from"] as? [String: Any]
+        let from    = fromObj?["address"] as? String ?? ""
+        let subject = d["subject"] as? String ?? "(no subject)"
+        let intro   = d["intro"] as? String ?? ""
+        let html    = (d["html"] as? [String] ?? []).joined()
+        let text    = d["text"] as? String ?? intro
+        let body    = html.isEmpty ? text : stripHTML(html)
+        let created = d["createdAt"] as? String ?? ""
+        let ts      = isoToTimestamp(created)
+        return MailMessage(id: id, from: from, subject: subject, excerpt: intro, body: body, timestamp: ts)
+    }
+
+    // MARK: ── Mailinator ─────────────────────────────────────────────────
+
+    private func mailinatorSession() async throws -> ProviderSession {
+        let chars   = "abcdefghijklmnopqrstuvwxyz"
+        let user    = String((0..<10).map { _ in chars.randomElement()! })
+        let email   = "\(user)@mailinator.com"
+        return ProviderSession(email: email, mailinatorUser: user)
+    }
+
+    private func mailinatorMessages(session: ProviderSession) async throws -> [MailMessage] {
+        guard let user = session.mailinatorUser else { return [] }
+        let url  = "https://www.mailinator.com/api/v2/domains/public/inboxes/\(user)"
+        let data = try await get(url)
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let msgs = json["msgs"] as? [[String: Any]]
+        else { return [] }
+        return msgs.compactMap { parseMailinatorMsg($0) }
+    }
+
+    private func parseMailinatorMsg(_ d: [String: Any]) -> MailMessage? {
+        guard let id = d["id"] as? String else { return nil }
+        let from    = d["fromfull"] as? String ?? d["from"] as? String ?? ""
+        let subject = d["subject"] as? String ?? "(no subject)"
+        let body    = d["mail_body"] as? String ?? d["body"] as? String ?? ""
+        let excerpt = String(body.prefix(120))
+        let ts      = (d["time"] as? Double ?? 0) / 1000.0
+        return MailMessage(id: id, from: from, subject: subject, excerpt: excerpt, body: body, timestamp: ts)
+    }
+
+    // MARK: ── HTTP Helpers ───────────────────────────────────────────────
+
+    private func get(_ urlStr: String, bearer: String? = nil) async throws -> Data {
+        guard let url = URL(string: urlStr) else { throw MailServiceError.sessionFailed }
+        var req = URLRequest(url: url, timeoutInterval: 15)
+        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        if let bearer { req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        return try await fetch(req)
+    }
+
+    private func post(_ urlStr: String, body: Data) async throws -> Data {
+        guard let url = URL(string: urlStr) else { throw MailServiceError.sessionFailed }
+        var req = URLRequest(url: url, timeoutInterval: 15)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(body)
+        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        req.httpBody = body
+        return try await fetch(req)
+    }
+
+    private func fetch(_ req: URLRequest) async throws -> Data {
         do {
-            return try await URLSession.shared.data(for: req)
+            let (data, _) = try await URLSession.shared.data(for: req)
+            return data
+        } catch let e as URLError where e.code == .timedOut {
+            throw MailServiceError.timeout
         } catch {
-            throw MailTMError.networkError(error)
+            throw MailServiceError.networkError(error)
         }
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
-        let decoder = JSONDecoder()
-        return try decoder.decode(type, from: data)
+    // MARK: ── Utilities ──────────────────────────────────────────────────
+
+    private func stripHTML(_ html: String) -> String {
+        let stripped = html.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        return stripped.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    private func isoToTimestamp(_ iso: String) -> TimeInterval {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: iso)?.timeIntervalSince1970 ?? 0
     }
 }

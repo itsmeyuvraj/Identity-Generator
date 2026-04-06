@@ -1,109 +1,68 @@
 import Foundation
 
-// MARK: - Request Bodies
+// MARK: - Provider
 
-struct AccountRequest: Codable {
-    let address: String
-    let password: String
-}
+enum EmailProvider: String, CaseIterable, Identifiable {
+    case guerrillaMail = "Guerrilla Mail"
+    case mailTM        = "Mail.tm"
+    case mailinator    = "Mailinator"
 
-struct TokenRequest: Codable {
-    let address: String
-    let password: String
-}
+    var id: String { rawValue }
 
-// MARK: - Domain
-
-struct DomainsResponse: Codable {
-    let members: [Domain]
-
-    enum CodingKeys: String, CodingKey {
-        case members = "hydra:member"
-    }
-}
-
-struct Domain: Codable {
-    let id: String
-    let domain: String
-    let isActive: Bool
-    let isPrivate: Bool
-}
-
-// MARK: - Account
-
-struct Account: Codable {
-    let id: String
-    let address: String
-}
-
-// MARK: - Token
-
-struct TokenResponse: Codable {
-    let token: String
-    let id: String
-}
-
-// MARK: - Messages
-
-struct MessagesResponse: Codable {
-    let members: [Message]
-
-    enum CodingKeys: String, CodingKey {
-        case members = "hydra:member"
-    }
-}
-
-struct Message: Codable, Identifiable, Equatable {
-    let id: String
-    let from: EmailAddress
-    let subject: String
-    let intro: String?
-    let createdAt: String
-    let seen: Bool
-
-    var isRead: Bool { seen }
-
-    enum CodingKeys: String, CodingKey {
-        case id, from, subject, intro, createdAt, seen
-    }
-
-    static func == (lhs: Message, rhs: Message) -> Bool {
-        lhs.id == rhs.id && lhs.seen == rhs.seen
-    }
-}
-
-struct EmailAddress: Codable {
-    let address: String
-    let name: String?
-}
-
-// MARK: - Message Detail
-
-struct MessageDetail: Codable, Identifiable {
-    let id: String
-    let from: EmailAddress
-    let subject: String
-    let html: [String]?
-    let text: String?
-    let createdAt: String
-
-    /// Returns the best available body text, HTML tags stripped.
-    var bodyText: String {
-        if let html = html, !html.isEmpty {
-            let joined = html.joined(separator: "\n")
-            // Strip HTML tags using regex
-            let stripped = joined.replacingOccurrences(
-                of: "<[^>]+>",
-                with: "",
-                options: .regularExpression
-            )
-            // Collapse whitespace
-            let cleaned = stripped
-                .components(separatedBy: .whitespacesAndNewlines)
-                .filter { !$0.isEmpty }
-                .joined(separator: " ")
-            return cleaned.isEmpty ? (text ?? "No content.") : cleaned
+    var shortName: String {
+        switch self {
+        case .guerrillaMail: return "GML"
+        case .mailTM:        return "MTM"
+        case .mailinator:    return "MIN"
         }
-        return text ?? "No content."
     }
+
+    var icon: String {
+        switch self {
+        case .guerrillaMail: return "bolt.fill"
+        case .mailTM:        return "envelope.circle.fill"
+        case .mailinator:    return "tray.full.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .guerrillaMail: return "Fast & reliable"
+        case .mailTM:        return "Registered inbox"
+        case .mailinator:    return "Public inbox"
+        }
+    }
+
+    var accentColor: (r: Double, g: Double, b: Double) {
+        switch self {
+        case .guerrillaMail: return (0.20, 0.80, 0.45)
+        case .mailTM:        return (0.40, 0.55, 1.00)
+        case .mailinator:    return (1.00, 0.60, 0.20)
+        }
+    }
+}
+
+// MARK: - Unified Message
+
+struct MailMessage: Identifiable, Equatable {
+    let id: String
+    let from: String
+    let subject: String
+    let excerpt: String
+    let body: String
+    let timestamp: TimeInterval
+
+    static func == (lhs: MailMessage, rhs: MailMessage) -> Bool { lhs.id == rhs.id }
+}
+
+// MARK: - Session
+
+struct ProviderSession {
+    let email: String
+    // Guerrilla Mail
+    var sidToken: String?
+    // Mail.tm
+    var authToken: String?
+    // Mailinator
+    var mailinatorUser: String?
 }

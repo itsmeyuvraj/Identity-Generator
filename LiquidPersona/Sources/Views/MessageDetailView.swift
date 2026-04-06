@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MessageDetailView: View {
 
-    let detail: MessageDetail
+    let detail: MailMessage
     let onBack: () -> Void
 
     var body: some View {
@@ -30,7 +30,7 @@ struct MessageDetailView: View {
 
             Spacer()
 
-            Text(relativeDate(detail.createdAt))
+            Text(relativeDate(detail.timestamp))
                 .font(.system(size: 10))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
@@ -43,11 +43,8 @@ struct MessageDetailView: View {
     private var scrollBody: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 14) {
+                metaRow(label: "From", value: detail.from.isEmpty ? "Unknown" : detail.from)
 
-                // ── From ─────────────────────────────────────────────────
-                metaRow(label: "From", value: fromDisplay)
-
-                // ── Subject ──────────────────────────────────────────────
                 Text(detail.subject)
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -55,8 +52,7 @@ struct MessageDetailView: View {
 
                 Divider().overlay(Color.white.opacity(0.08))
 
-                // ── Body ─────────────────────────────────────────────────
-                Text(detail.bodyText)
+                Text(detail.body.isEmpty ? "No content." : detail.body)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.white.opacity(0.78))
                     .lineSpacing(5)
@@ -83,16 +79,9 @@ struct MessageDetailView: View {
         }
     }
 
-    private var fromDisplay: String {
-        let n = detail.from.name ?? ""
-        let a = detail.from.address
-        return n.isEmpty ? a : "\(n) <\(a)>"
-    }
-
-    private func relativeDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) else { return "" }
+    private func relativeDate(_ ts: TimeInterval) -> String {
+        guard ts > 0 else { return "" }
+        let date = Date(timeIntervalSince1970: ts)
         let rel = RelativeDateTimeFormatter()
         rel.unitsStyle = .short
         return rel.localizedString(for: date, relativeTo: Date())
