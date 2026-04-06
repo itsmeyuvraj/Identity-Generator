@@ -1,5 +1,5 @@
 # 💎 Identity Generator for macOS
-### A Native "Liquid Glass" Utility for QA Engineers & Privacy
+### A Native "Liquid Glass" Utility for Privacy
 <img width="351" height="480" alt="Screenshot 2026-04-06 at 4 50 09 PM" src="https://github.com/user-attachments/assets/e08bc275-1483-4f74-a9eb-90b5f7885bc8" />
 <img width="349" height="472" alt="Screenshot 2026-04-06 at 4 50 32 PM" src="https://github.com/user-attachments/assets/fa2b0220-7c1e-40a1-859f-6f4e05717e9e" />
 <img width="351" height="477" alt="Screenshot 2026-04-06 at 4 50 43 PM" src="https://github.com/user-attachments/assets/57749ba6-f46c-4f53-8baf-96ed82c8f231" />
