@@ -1,13 +1,10 @@
 # 💎 Identity Generator for macOS
 ### A Native "Liquid Glass" Utility for QA Engineers & Privacy
+<img width="351" height="480" alt="Screenshot 2026-04-06 at 4 50 09 PM" src="https://github.com/user-attachments/assets/e08bc275-1483-4f74-a9eb-90b5f7885bc8" />
 
-<p align="center">
-  <img src="screenshots/main_ui.png" width="400" alt="Identity Generator Main UI">
-  <br>
-  <a href="https://github.com/itsmeyuvraj/Identity-Generator/releases">
-    <img src="https://img.shields.io/github/v/release/itsmeyuvraj/Identity-Generator?style=for-the-badge&color=blue" alt="Latest Release">
-  </a>
-</p>
+<img width="277" height="366" alt="Screenshot 2026-04-06 at 4 50 17 PM" src="https://github.com/user-attachments/assets/a96ddf5e-a519-4092-936b-b043fdadcf2c" /><img width="349" height="472" alt="Screenshot 2026-04-06 at 4 50 32 PM" src="https://github.com/user-attachments/assets/fa2b0220-7c1e-40a1-859f-6f4e05717e9e" /><img width="351" height="477" alt="Screenshot 2026-04-06 at 4 50 43 PM" src="https://github.com/user-attachments/assets/57749ba6-f46c-4f53-8baf-96ed82c8f231" />
+
+
 
 ---
 
@@ -61,9 +58,6 @@ To get started with the latest build:
 ## 👤 Developer
 **Yuvraj Sharma** *QA Engineer & AI-Assisted Developer*
 
-<p align="left">
-  <img src="screenshots/about_page.png" width="250" alt="About Identity Generator">
-</p>
 
 ---
 
