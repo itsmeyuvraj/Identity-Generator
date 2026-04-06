@@ -1,52 +1,69 @@
-Identity Generator for macOS
-A "Liquid Glass" Utility for QA & Privacy
-Identity Generator is a lightweight, native macOS Menu Bar app designed for QA Engineers, developers, and privacy-conscious users. In a single click, it generates a complete "Test Persona" featuring a random Indian name and a fully functional, real-time temporary email inbox.
+# 💎 Identity Generator for macOS
+### A Native "Liquid Glass" Utility for QA Engineers & Privacy
 
-
-
-<em>The "Liquid Glass" Interface in action.</em>
+<p align="center">
+  <img src="screenshots/main_ui.png" width="400" alt="Identity Generator Main UI">
 </p>
 
-✨ Features
-One-Click Persona: Instantly generates a random Indian name and unique email address.
+---
 
-Auto-Copy to Clipboard: The email is copied to your clipboard the moment you click "Generate."
+## 🚀 Overview
+**Identity Generator** is a lightweight, native macOS Menu Bar application designed to eliminate the friction of manual test data creation. Built with **SwiftUI** and a modern **Liquid Glass** aesthetic, it provides instant access to disposable Indian personas and functional email inboxes directly from your system tray.
 
-Real-time Inbox: Integrated with the Mail.tm API to receive verification codes and OTPs directly in the app.
+> **"Built by a QA, for QAs."** — Optimized for speed, reliability, and zero-distraction workflows.
 
-"Liquid Glass" UI: A modern, frosted-glass aesthetic that fits perfectly with the macOS Control Center design.
+---
 
-Background Notifications: Get a macOS system alert when a new email arrives, even if the popover is closed.
+## ✨ Key Features
 
-Native Performance: Built with 100% SwiftUI—minimal RAM and CPU footprint.
+| Feature | Description |
+| :--- | :--- |
+| **⚡️ One-Click Persona** | Generates a random Indian Name (First + Last) instantly. |
+| **📧 Live Temp Email** | Integrated with **Mail.tm** for real-time temporary inboxes. |
+| **📋 Auto-Copy** | Your new email is copied to the `NSPasteboard` the millisecond you click. |
+| **🔔 Smart Notifications** | Get a macOS banner when an OTP or verification code arrives. |
+| **🧊 Liquid Glass UI** | A high-end, frosted-glass interface that matches the macOS Control Center. |
+| **🖱️ Haptic Feedback** | Tactile confirmation on every click for a premium feel. |
 
+---
 
-🛠 Why I Built This 
+## 🛠 Why Use This?
+As a **QA Engineer**, manual regression testing often involves creating dozens of "throwaway" accounts. This app solves three major pain points:
+1. **Context Switching:** No more opening a browser tab just to get a temp email.
+2. **Data Fatigue:** No more "test1@test.com" — use real names like *Arjun Bhatia* for better database integrity.
+3. **OTP Friction:** View verification codes in the menu bar popover without leaving your app-under-test.
 
-As a QA Engineer, I found myself wasting hours every week manually creating test accounts and managing "disposable" email tabs in my browser. I wanted a tool that:
+---
 
-Lived in the Menu Bar for zero-friction access.
+## 📦 Installation
 
-Handled the Email Polling automatically so I never have to leave my testing environment.
+Since this is a specialized utility, follow these steps to get running:
 
-Provided Instant Data (Name + Email) to speed up regression testing.
+1. **Download:** Grab the latest `.pkg` installer from the [Releases](https://github.com/your-username/IdentityGenerator/releases) page.
+2. **Install:** * **Right-click** the `.pkg` file.
+   * Select **Open** (to bypass the macOS Gatekeeper warning for independent developers).
+   * Follow the prompts.
+3. **Run:** Look for the **Person icon** in your Menu Bar!
 
+---
 
+## ⚙️ Technical Specs
+* **Framework:** 100% SwiftUI (Native)
+* **API Engine:** [Mail.tm](https://mail.tm/)
+* **Minimum OS:** macOS 13.0+ (Ventura, Sonoma, Sequoia)
+* **Architecture:** Optimized for Apple Silicon (M1/M2/M3) and Intel.
 
-🚀 Installation & Usage
-Method 1: The App (Recommended)
-Download the latest .pkg from the Releases page.
+---
 
-Right-click the .pkg and select Open (to bypass the unidentified developer warning).
+## 👤 Credits & Development
+Developed with ❤️ by **Yuvraj Sharma**. 
 
-Follow the installation steps and find the icon in your Menu Bar.
+Built using a "Vibe Coding" workflow—leveraging AI-assisted development to create high-performance native macOS tools.
 
-Method 2: Build from Source
-If you have Xcode installed:
+---
 
-Bash
-git clone https://github.com/your-username/IdentityGenerator.git
-cd IdentityGenerator
+## 📄 License
+This project is licensed under the **MIT License**. Feel free to fork, star, and improve!cd IdentityGenerator
 open IdentityGenerator.xcodeproj
 Press Cmd + R to run.
 
