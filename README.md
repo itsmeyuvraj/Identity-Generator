@@ -62,45 +62,12 @@ To get started with the latest build:
 
 ---
 
-## 📄 License
-This project is licensed under the **MIT License**. Feel free to fork, star, and improve!3. **Run:** Look for the **Person icon** in your Menu Bar!
-
----
-
-## ⚙️ Technical Specs
-* **Framework:** 100% SwiftUI (Native)
-* **API Engine:** [Mail.tm](https://mail.tm/)
-* **Minimum OS:** macOS 13.0+ (Ventura, Sonoma, Sequoia)
-* **Architecture:** Optimized for Apple Silicon (M1/M2/M3) and Intel.
-
----
-
-## 👤 Credits & Development
-Developed with ❤️ by **Yuvraj Sharma**. 
-
-Built using a "Vibe Coding" workflow—leveraging AI-assisted development to create high-performance native macOS tools.
-
 ---
 
 ## 📄 License
-This project is licensed under the **MIT License**. Feel free to fork, star, and improve!cd IdentityGenerator
-open IdentityGenerator.xcodeproj
-Press Cmd + R to run.
 
+Copyright (C) 2026 Yuvraj Poudyal
 
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-⚙️ Technical Details
-Language: Swift 5.10 / SwiftUI
-
-API: Mail.tm
-
-Architecture: MVVM (Model-View-ViewModel)
-
-Design: Glassmorphism / Material Design
-
-
-👤 Developer
-Yuvraj Sharma QA Engineer & AI-Assisted Developer ---
-
-📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](LICENSE) for more details.
